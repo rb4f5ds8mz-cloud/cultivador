@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#173b2a">
+<title>Cultivador</title>
+<style>
+:root{--bg:#f4f7f3;--card:#fff;--ink:#142019;--muted:#718078;--green:#173b2a;--green2:#2f6b48;--soft:#e5eee7;--line:#dfe7e1;--warn:#fff3dc;--radius:20px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+.app{max-width:760px;margin:auto;padding:calc(12px + env(safe-area-inset-top)) 16px calc(30px + env(safe-area-inset-bottom))}
+header{padding:12px 2px 16px}.brand{display:flex;align-items:center;gap:10px}.leaf{font-size:34px}h1{font-size:30px;margin:0;letter-spacing:-1px}.subtitle{color:var(--muted);margin-top:3px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}.tab{border:0;background:#e5ece7;color:var(--green);padding:12px 5px;border-radius:14px;font-weight:800;font-size:14px}.tab.active{background:var(--green);color:#fff}
+.view{display:none}.view.active{display:block}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:12px}
+.hero{background:var(--green);color:#fff;border-radius:24px;padding:22px;margin-bottom:12px}.hero small{opacity:.75}.hero h2{font-size:40px;margin:5px 0 2px}.hero p{margin:0;opacity:.9}
+.section{font-size:19px;font-weight:850;margin:20px 3px 10px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#fff;border:1px solid var(--line);border-radius:17px;padding:15px}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+.task{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:8px}.check{width:23px;height:23px;accent-color:var(--green);margin-top:1px}.task.done{opacity:.55}.task.done .task-title{text-decoration:line-through}.task-body{flex:1}.task-title{font-weight:800}.task-desc{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.35}.daytag{font-size:11px;color:var(--muted);white-space:nowrap}
+label{display:block;font-weight:750;font-size:14px;margin-bottom:12px}input,select{width:100%;margin-top:6px;padding:14px;border:1px solid #cbd6cd;border-radius:13px;background:#fff;font-size:16px;color:var(--ink)}
+button.primary{width:100%;border:0;border-radius:14px;background:var(--green);color:#fff;padding:15px;font-size:16px;font-weight:850}
+button.secondary{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--green);padding:13px;font-weight:800;margin-top:9px}
+.progress{height:9px;background:#dfe8e1;border-radius:99px;overflow:hidden;margin:12px 0 4px}.progress>i{display:block;height:100%;background:var(--green2);border-radius:99px}
+.empty{text-align:center;color:var(--muted);padding:28px 10px}.notice{background:var(--warn);border-radius:15px;padding:13px;font-size:13px;margin-top:10px}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.calhead{text-align:center;font-size:10px;color:var(--muted);font-weight:800;padding:4px 0}.calday{border:1px solid var(--line);background:#fff;border-radius:10px;min-height:54px;padding:6px;font-size:12px}.calday strong{display:block}.calday.has{background:var(--soft);border-color:#bdd0c2}.calday.today{outline:2px solid var(--green)}.calday.emptyday{background:transparent;border:0}
+.footer{text-align:center;color:var(--muted);font-size:11px;padding:18px 0}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand"><span class="leaf">🌱</span><div><h1>Cultivador</h1><div class="subtitle">Tu cultivo, día a día.</div></div></div></header>
+<nav class="tabs">
+<button class="tab active" data-view="hoy">Hoy</button>
+<button class="tab" data-view="calendario">Calendario</button>
+<button class="tab" data-view="config">Mi cultivo</button>
+</nav>
+
+<section id="hoy" class="view active"></section>
+<section id="calendario" class="view"></section>
+<section id="config" class="view"></section>
+<div class="footer">Los datos se guardan en este dispositivo.</div>
+</div>
+
+<script>
+const KEY="cultivador_v2";
+const defaultData={name:"Mi cultivo",start:"",completed:{}};
+let data=JSON.parse(localStorage.getItem(KEY)||"null")||defaultData;
+
+const phases=[
+ {a:1,b:7,n:"Inicio",d:"Establecimiento inicial del cultivo."},
+ {a:8,b:21,n:"Plántula",d:"Desarrollo inicial y adaptación."},
+ {a:22,b:45,n:"Crecimiento",d:"Etapa de crecimiento activo."},
+ {a:46,b:75,n:"Desarrollo",d:"Desarrollo avanzado."},
+ {a:76,b:9999,n:"Fase final",d:"Seguimiento final del ciclo."}
+];
+
+const tasks=[
+ [1,"Revisión inicial","Comprobar el estado general del cultivo y registrar cualquier incidencia."],
+ [2,"Control de humedad","Comprobar el sustrato y mantener una humedad adecuada, sin excesos."],
+ [3,"Revisión general","Observar hojas, tallos y aspecto general."],
+ [4,"Control ambiental","Revisar las condiciones ambientales del espacio de cultivo."],
+ [5,"Revisión general","Comprobar evolución y anotar observaciones."],
+ [6,"Control de humedad","Comprobar las necesidades de agua según las condiciones del cultivo."],
+ [7,"Revisión semanal","Revisión completa y registro de la evolución."],
+ [10,"Revisión","Comprobar crecimiento y estado general."],
+ [14,"Revisión semanal","Registrar evolución y revisar las condiciones."],
+ [21,"Revisión semanal","Evaluar la evolución antes de la siguiente fase."],
+ [28,"Revisión","Comprobar desarrollo y necesidades."],
+ [35,"Revisión semanal","Registrar evolución."],
+ [42,"Revisión","Comprobar desarrollo."],
+ [49,"Revisión semanal","Registrar evolución."],
+ [56,"Revisión","Comprobar estado general."],
+ [63,"Revisión semanal","Registrar evolución."],
+ [70,"Revisión","Comprobar desarrollo."],
+ [77,"Revisión semanal","Registrar evolución."],
+ [84,"Revisión","Comprobar estado general."]
+];
+
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function dateOnly(s){return new Date(s+"T00:00:00")}
+function today(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+function dayNumber(){
+ if(!data.start)return null;
+ return Math.max(1,Math.floor((today()-dateOnly(data.start))/86400000)+1);
+}
+function phase(day){return phases.find(p=>day>=p.a&&day<=p.b)||phases.at(-1)}
+function fmt(d){return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"})}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function taskFor(day){return tasks.filter(t=>t[0]===day)}
+function show(id){
+ document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+ document.querySelector('[data-view="'+id+'"]').classList.add("active");
+ if(id==="hoy")renderToday(); if(id==="calendario")renderCalendar(); if(id==="config")renderConfig();
+}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>show(b.dataset.view));
+
+function renderToday(){
+ const el=document.getElementById("hoy"), day=dayNumber();
+ if(!data.start){
+  el.innerHTML='<div class="hero"><small>Bienvenido</small><h2>Empieza aquí</h2><p>Introduce la fecha de germinación y Cultivador calculará automáticamente el día del cultivo.</p></div><button class="primary" onclick="show(\'config\')">📅 Introducir fecha de germinación</button>';
+  return;
+ }
+ const p=phase(day), pct=Math.min(100,Math.round(day/(p.b===9999?120:p.b)*100));
+ const todayTasks=taskFor(day);
+ const next=tasks.find(t=>t[0]>day&&!data.completed[t[0]]);
+ const done=todayTasks.filter(t=>data.completed[t[0]]).length;
+ el.innerHTML=`
+ <div class="hero"><small>${esc(data.name)}</small><h2>Día ${day}</h2><p>${p.n} · ${p.d}</p><div class="progress"><i style="width:${pct}%"></i></div><small>Germinación: ${fmt(dateOnly(data.start))}</small></div>
+ <div class="stats"><div class="stat"><b>${p.n}</b><span>Fase actual</span></div><div class="stat"><b>${done}/${todayTasks.length||0}</b><span>Tareas de hoy</span></div></div>
+ <div class="section">Qué toca hoy</div>
+ ${todayTasks.length?todayTasks.map(t=>taskHTML(t)).join(""):'<div class="card empty">No hay una tarea específica programada para hoy. Revisa el estado general del cultivo.</div>'}
+ <div class="section">Siguiente tarea</div>
+ ${next?`<div class="card"><b>Día ${next[0]} · ${next[1]}</b><div class="task-desc">${next[2]}</div></div>`:'<div class="card empty">No hay más tareas programadas.</div>'}
+ `;
+ bindChecks(el);
+}
+function taskHTML(t){
+ const checked=!!data.completed[t[0]];
+ return `<label class="task ${checked?'done':''}"><input class="check" type="checkbox" data-day="${t[0]}" ${checked?'checked':''}><div class="task-body"><div class="task-title">${esc(t[1])}</div><div class="task-desc">${esc(t[2])}</div></div><span class="daytag">Día ${t[0]}</span></label>`;
+}
+function bindChecks(root){
+ root.querySelectorAll("[data-day]").forEach(x=>x.onchange=()=>{
+  const d=x.dataset.day;if(x.checked)data.completed[d]=true;else delete data.completed[d];save();renderToday();
+ });
+}
+
+function renderCalendar(){
+ const el=document.getElementById("calendario");
+ if(!data.start){el.innerHTML='<div class="card empty">Configura primero la fecha de germinación.</div>';return}
+ const start=dateOnly(data.start), current=dayNumber();
+ const y=start.getFullYear(),m=start.getMonth();
+ const first=new Date(y,m,1), last=new Date(y,m+1,0);
+ let html=`<div class="section" style="margin-top:4px">Calendario de ${first.toLocaleDateString("es-ES",{month:"long",year:"numeric"})}</div><div class="calendar">`;
+ ["L","M","X","J","V","S","D"].forEach(x=>html+=`<div class="calhead">${x}</div>`);
+ let offset=(first.getDay()+6)%7;
+ for(let i=0;i<offset;i++)html+='<div class="calday emptyday"></div>';
+ for(let d=1;d<=last.getDate();d++){
+  const dt=new Date(y,m,d), day=Math.floor((dt-start)/86400000)+1, has=tasks.some(t=>t[0]===day), isToday=day===current;
+  html+=`<div class="calday ${has?'has':''} ${isToday?'today':''}"><strong>${d}</strong>${day>0&&day<=9999?`<span>D${day}</span>`:""}</div>`;
+ }
+ html+='</div><div class="notice">Los días marcados tienen tareas programadas. El calendario se actualizará según la fecha de germinación.</div>';
+ el.innerHTML=html;
+}
+
+function renderConfig(){
+ document.getElementById("config").innerHTML=`
+ <div class="card"><div class="section" style="margin-top:0">Mi cultivo</div>
+ <label>Nombre del cultivo<input id="name" type="text" value="${esc(data.name||"Mi cultivo")}" placeholder="Ej. Cultivo 1"></label>
+ <label>Fecha de germinación<input id="start" type="date" value="${data.start||""}"></label>
+ <button class="primary" id="saveBtn">Guardar y empezar</button>
+ ${data.start?'<button class="secondary" id="clearBtn">Borrar cultivo y empezar de nuevo</button>':""}
+ </div>
+ <div class="card"><b>¿Cómo funciona?</b><div class="task-desc" style="margin-top:7px">La fecha de germinación es el Día 1. A partir de ella, Cultivador calcula automáticamente el día actual, la fase, las tareas y el calendario. Tus datos quedan guardados en este dispositivo.</div></div>`;
+ document.getElementById("saveBtn").onclick=()=>{
+  const s=document.getElementById("start").value;
+  if(!s){alert("Selecciona la fecha de germinación.");return}
+  data.name=document.getElementById("name").value.trim()||"Mi cultivo";
+  data.start=s;save();show("hoy");
+ };
+ const c=document.getElementById("clearBtn");
+ if(c)c.onclick=()=>{if(confirm("¿Borrar todo el cultivo?")){data={...defaultData,completed:{}};save();renderConfig()}};
+}
+
+renderToday();
+</script>
+</body>
+</html>
